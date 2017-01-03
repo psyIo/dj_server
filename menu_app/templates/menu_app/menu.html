@@ -1,0 +1,51 @@
+{% extends 'menu_app/base.html' %}
+
+{% block content %} 
+
+<a href="/generate/">Generate Tree</a>
+<a href="/delete_tree/">Delete Tree</a>
+<p>Total elements: {{elem_qty}}</p>
+{# {{menu | safe}} #}
+
+<ul>
+	{% for item in tree %}	
+		<li class="tree_li">		
+			{{item.level_string}}{{item.id}}
+			{% if item.is_category %}
+				<a class="category" href="/cat/{{item.category.id}}">{{item.category.name}}</a>
+				({{item.child_qty}}) {#{{item.category.active}}#}
+				<a class="insert_btn" href="javascript:void(0)" data-id="{{item.id}}" data-iscategory="true">insert</a>				
+			{% else %}
+				<a class="product" href="/prod/{{item.product.id}}">{{item.product.name}}</a>
+				(€ {{item.product.price}}) {#{{item.product.active}}#}
+				<a class="insert_btn" href="javascript:void(0)" data-id="{{item.id}}" data-iscategory="false">insert</a>
+			{% endif %}				
+			<span> </span>
+			<a href="/del/{{item.id}}/">delete</a>
+		</li>
+	{% endfor %}
+</ul>
+
+<div id="change_menu" class="invisible">
+	Called by id: <span id="change_menu_entry_id" data-id="0"></span><br>
+	<input id="child_checkbox" type="checkbox" name="child">Insert as child <br>
+	<input id="category_radio" type="radio" name="type" value="1" checked>Category <br>	
+	<input id="product_radio" type="radio" name="type" value="0" checked>Product <br>	
+	<input id="category_input" list="category_list" name="category">
+	<datalist id="category_list">
+		{% for category in cats %}
+			<option value="{{category.name}}" data-id="{{category.id}}">
+		{% endfor %}
+	</datalist>		
+	<input id="product_input" list="product_list" name="product">
+	<datalist id="product_list">
+		{% for product in prods %}
+			<option value="{{product.name}}" data-id="{{product.id}}">
+		{% endfor %}
+	</datalist>	
+	<br>
+	<button id="change_insert_btn" type="button">CREATE</button>	
+</div>
+
+{% endblock %}
+

@@ -1,0 +1,47 @@
+a {
+    text-decoration: underline;
+    /*font-weight: bold;*/
+    /*color: lime;*/
+}
+
+#change_menu {
+    background-color: lightblue;
+    padding: 25px;
+    width: 500px;
+    height: 200px;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+}
+
+a:hover {
+    /*color: lime;*/
+}
+
+.invisible {
+    visibility: hidden;
+}
+
+.visible {
+    visibility: visible;
+}
+
+.container {
+    margin-top: 14px;
+    /*width: 800px;*/
+}
+
+a.category {
+    color: blue
+}
+
+a.product {
+    color: green;
+}
+
+* {
+    font-family: Courier New;
+    /*color: lime;
+    background-color: black;*/
+    /*padding: 5px 5px 5px 5px;*/    
+}
