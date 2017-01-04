@@ -153,7 +153,6 @@ class MenuTree(models.Model):
 
 		#updates child qtys in parent entry		
 		if not sibling.is_category:
-			logme('created sibling element id {}'.format(sibling.id)) #dev
 			if sibling.product.active:
 				#parent.update_parents_element_count([1,1])
 				sibling.parent.update_parents_element_count([1,1])
