@@ -2,22 +2,30 @@
 
 {% block content %} 
 
-<a href="/generate/">Generate Tree</a>
+<a href="/generate_tree/">Generate Tree</a>
 <a href="/delete_tree/">Delete Tree</a>
-<p>Total elements: {{elem_qty}}</p>
-{# {{menu | safe}} #}
+<p>Total elements: {{elements_total}} Products total: {{prods_total}} Total Categories: {{cats_total}}
+Categories inactive: {{cats_inactive}} Products inactive: {{prods_inactive}} <br>
+Active products in inactive categories {{active_prods_in_inactive_cats}}</p>
 
 <ul>
 	{% for item in tree %}	
 		<li class="tree_li">		
-			{{item.level_string}}{{item.id}}
+			{{item.level_string | safe}}{{item.id}}
 			{% if item.is_category %}
 				<a class="category" href="/cat/{{item.category.id}}">{{item.category.name}}</a>
-				({{item.child_qty}}) {#{{item.category.active}}#}
+				({{item.child_qty}}) 
+				{% if not item.category.active %}
+					<span class="inactive">+</span>
+				{% endif %}
 				<a class="insert_btn" href="javascript:void(0)" data-id="{{item.id}}" data-iscategory="true">insert</a>				
 			{% else %}
 				<a class="product" href="/prod/{{item.product.id}}">{{item.product.name}}</a>
-				(€ {{item.product.price}}) {#{{item.product.active}}#}
+				(€ {{item.product.price}})
+				{% if not item.product.active %}
+					<span class="inactive">+</span>
+				{% endif %}
+				{#{{item.product.active}}#}
 				<a class="insert_btn" href="javascript:void(0)" data-id="{{item.id}}" data-iscategory="false">insert</a>
 			{% endif %}				
 			<span> </span>
@@ -44,7 +52,7 @@
 		{% endfor %}
 	</datalist>	
 	<br>
-	<button id="change_insert_btn" type="button">CREATE</button>	
+	<button id="change_insert_btn" type="button">INSERT</button>	
 </div>
 
 {% endblock %}

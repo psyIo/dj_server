@@ -2,36 +2,12 @@
 
 {% block content %} 
 
-{#<a href="/generate/">Generate Tree</a>#}
-{#<a href="/delete_tree/">Delete Tree</a>#}
-
-<p>Total elements{{elem_qty}}</p>
-
-{# {{menu | safe}} #}
-
-<ul>
-	{% for item in tree %}	
-		{% if item.is_category %}
-			{% if item.category.active %}
-				<li data-id="{{item.id}}">
-					{{item.level_string}}{{item.id}}
-					<a class="category" href="/cat/{{item.category.id}}">{{item.category.name}}</a>
-					({{item.child_qty_active}})
-				</li>
-			{% endif %}	
-		{% else %}
-			{% if item.product.active %}
-				<li data-id="{{item.id}}">
-					{{item.level_string}}{{item.id}}
-					<a class="product" href="/prod/{{item.product.id}}">{{item.product.name}}</a>
-					(€ {{item.product.price}})
-				</li>
-			{% endif %}	
-		{% endif %}	
-		
-		
-	{% endfor %}
+<ul id="menu_tree">
+	<li class="tree_li" id="li_{{root.id}}">
+		Menu 
+		<a id="expand_root" class="expand_btn" href="javascript:void(0)" 
+			data-id="{{root.id}}" data-state="closed"></a>
+	</li>
 </ul>
 
 {% endblock %}
-

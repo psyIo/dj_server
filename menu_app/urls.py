@@ -13,10 +13,12 @@ urlpatterns = [
     	views.product_card, name='product_card'), 
 	url(r'^del/(?P<element_id>\d+)/$', 
     	views.delete_element, name='delete_element'),
-	url(r'^generate/$', 
+	url(r'^generate_tree/$', 
     	views.generate_tree, name='generate_tree'),
     url(r'^delete_tree/$', 
         views.delete_tree, name='delete_tree'),
     url(r'^menu_admin/$', 
         views.menu_admin, name='menu_admin'),
+    url(r'^get_childs_li/(?P<parent_id>\d+)/$', 
+        views.get_childs_li, name='get_childs_li'),
 ]

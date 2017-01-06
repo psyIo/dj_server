@@ -1,7 +1,6 @@
-a {
-    text-decoration: underline;
-    /*font-weight: bold;*/
-    /*color: lime;*/
+span.inactive {
+    background-color: red;
+    color: red;
 }
 
 #change_menu {
@@ -14,8 +13,12 @@ a {
     top: 50%;
 }
 
-a:hover {
-    /*color: lime;*/
+ul {
+    list-style: none;
+}
+
+span.space{
+    color: white;
 }
 
 .invisible {
@@ -28,7 +31,10 @@ a:hover {
 
 .container {
     margin-top: 14px;
-    /*width: 800px;*/
+}
+
+a {
+    text-decoration: underline;
 }
 
 a.category {
@@ -41,7 +47,4 @@ a.product {
 
 * {
     font-family: Courier New;
-    /*color: lime;
-    background-color: black;*/
-    /*padding: 5px 5px 5px 5px;*/    
 }

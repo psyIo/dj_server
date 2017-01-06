@@ -3,10 +3,21 @@ from django.db.models import F
 from django.core import exceptions
 from .add_lib import logme, add_li, attr_to_string, obj_w_level_to_list
 import random
+import datetime
 
 class Category(models.Model):
 	name = models.TextField(max_length=50)
 	active = models.BooleanField(default=False)
+
+	def save(self, *args, **kwargs):
+		if self.name == 'root':
+			try:
+				root = Category.objects.filter(name='root')
+			except:
+				root = None
+			if root:
+				return False				
+		super(Category, self).save(*args, **kwargs)
 
 class Product(models.Model):
 	name = models.TextField(max_length=50)
@@ -30,12 +41,6 @@ class MenuTree(models.Model):
 	child_qty = models.IntegerField(default=0)
 	child_qty_active = models.IntegerField(default=0)
 
-
-	# def save(self, *args, **kwargs):
-	# 	if not self.parent: #root element
-	# 		pass
-	# 	super(MenuTree, self).save(*args, **kwargs)
-
 	def update_parents_element_count(self, changes): #, active):
 		'''
 		Updates child_qty and child_qty_active fields for all parents
@@ -44,20 +49,14 @@ class MenuTree(models.Model):
 		self.child_qty = F('child_qty') + changes[0]
 		self.child_qty_active = F('child_qty_active') + changes[1]
 		self.save()
-		self.refresh_from_db() #dev				
+		self.refresh_from_db()			
 		if self.parent:			
 			self.parent.update_parents_element_count(changes)	
-		pats = MenuTree.objects.get(id=self.id)
-		pats.refresh_from_db()
-		logme('Updated elements for pats id: {} change {} total elements {}'.format(
-				pats.id,changes[0],pats.child_qty))
-		return
-	
+		return	
 
 	def get_root(self):
 		'''
-		Returns Root element, creates if does not exist, and assigns first active
-		category if exist
+		Returns root element, creates if does not exist, with category name 'root'
 		'''
 		try:
 			root = MenuTree.objects.get(parent=None)
@@ -65,9 +64,15 @@ class MenuTree(models.Model):
 			root = MenuTree()
 			root.is_category = True
 			try:
-				cat = Category.objects.filter(active=True)[0]
+				cat = Category.objects.filter(name='root')[0]
+				if not cat.active:
+					cat.active = True
+					cat.save()
 			except:
-				cat = None
+				cat = Category()
+				cat.name = 'root'
+				cat.active = True
+				cat.save()
 			root.category = cat	
 			root.save()
 		return root
@@ -107,8 +112,7 @@ class MenuTree(models.Model):
 
 		self.first_child = child
 		if not child.is_category:
-			logme('created child id {}'.format(child.id)) #dev
-			if child.product.active:
+			if child.product.active and self.category.active and not self.parent_category_inactive():
 				self.update_parents_element_count([1,1])
 			else:
 				self.update_parents_element_count([1,0])
@@ -153,13 +157,23 @@ class MenuTree(models.Model):
 
 		#updates child qtys in parent entry		
 		if not sibling.is_category:
-			if sibling.product.active:
-				#parent.update_parents_element_count([1,1])
+			if sibling.product.active and sibling.parent.parent_category_inactive():
 				sibling.parent.update_parents_element_count([1,1])
 			else:
 				sibling.parent.update_parents_element_count([1,0])
 
 		return sibling	
+
+	def parent_category_inactive(self):
+		'''
+		Checks if exist inactive parent category
+		'''
+		parent = self.parent
+		while parent:
+			if not parent.category.active:
+				return True
+			parent = parent.parent
+		return False
 
 	def delete_category_childs(self):
 		'''
@@ -178,70 +192,35 @@ class MenuTree(models.Model):
 
 				if child:
 					self.first_child = child.bot_sib
-					#deleted_products += child.delete_element(False)	
 					deleted_products = [x + y for x, y in 
 										zip(deleted_products, child.delete_element(False))]			
 			else:
 				run_loop = False
-		# logme('2 self: id {} first_ch {} del-prod {}'.format(
-		# 		self.id, self.first_child, deleted_products))
 		return deleted_products
 
 	def delete_element(self, update_parents):
 		'''
-		Returns a list of deleted child_qty and child_qty_active
+		Deletes element and childs if category
+		returns a list of deleted child_qty and child_qty_active quantities
 		'''
-		#top_sib = bot_sib = None
 		deleted_products = [0,0]
-		# if self.top_sib:
-		# 	try:
-		# 		top_sib = MenuTree.objects.get(id=self.top_sib.id)
-		# 	except exceptions.ObjectDoesNotExist:
-		# 		pass
-
-		# if self.bot_sib:
-		# 	try:
-		# 		bot_sib = MenuTree.objects.get(id=self.bot_sib.id)
-		# 	except exceptions.ObjectDoesNotExist:
-		# 		pass
-
-		# if top_sib:
-		# 	top_sib.bot_sib = bot_sib
-		# 	top_sib.save()
-
-		# if bot_sib:
-		# 	bot_sib.top_sib = top_sib
-		# 	bot_sib.save()	
 		if self.top_sib:
 			self.top_sib.bot_sib = self.bot_sib
 			self.top_sib.save()
 		if self.bot_sib:
 			self.bot_sib.top_sib = self.top_sib
 			self.bot_sib.save()
-		#logme('top_sib {} bot_sib {}'.format(top_sib,bot_sib))	
 	
-		if self.is_category:
+		if self.is_category:			
 			deleted_products = self.delete_category_childs()
+			if not self.category.active or self.parent_category_inactive():
+				deleted_products[1] = 0 #active products
 		else: #product	
-			if self.product.active:
+			if self.product.active and not self.parent_category_inactive():
 				deleted_products = [1,1]
 			else:
 				deleted_products = [1,0]
 
-		# if self.parent:		
-		# 	try:
-		# 		parent = MenuTree.objects.get(id=self.parent.id)
-		# 	except exceptions.ObjectDoesNotExist:
-		# 		parent = None
-		# else: #root element
-		# 	parent = None
-
-		# if parent:
-		# 	if parent.first_child == self: #self is a first child
-		# 		parent.first_child = self.bot_sib
-		# 		parent.save()
-		# 	if update_parents and (deleted_products[0] != 0):	
-		# 		parent.update_parents_element_count([-1 * x for x in deleted_products])
 		if self.parent:
 			if self.parent.first_child == self: #self is a first child
 				self.parent.first_child = self.bot_sib
@@ -255,64 +234,15 @@ class MenuTree(models.Model):
 		self.delete()				
 		return deleted_products
 
-	def get_tree_ul(self, level=0, *args, **kwargs):		
-		resp = []
-		local_level = level + 1
-		try:
-			submenu = MenuTree.objects.filter(parent=self, top_sib=None).get()
-		except exceptions.ObjectDoesNotExist:	
-			submenu = None		
-		if submenu: # != None:	
-			logme(submenu,'submenu_ne_none')
-			logme(submenu.is_category,'submenu.is_category')		
-			if submenu.is_category:
-				if submenu.category:
-					if submenu.category.active:
-						add_li(resp,'--'*local_level+str(submenu.id)+' '
-							   +str(submenu.category.name)+' '+str(submenu.child_qty)
-							   +' <a href="/del/{}">del</a>'.format(submenu.id))
-						resp.append(submenu.get_tree_ul(local_level))
-			else:
-				logme(submenu,'submenu_ne_noneX')
-				if submenu.product:
-					if submenu.product.active:
-						add_li(resp,'--'*local_level+str(submenu.id)+' '+str(submenu.product.name)
-							   +' '+str(submenu.product.price)+' <a href="/del/{}">del</a>'.format(submenu.id))
-			run_loop = True
-			while run_loop:				
-				if submenu.bot_sib == None:  #last child element
-					run_loop = False
-				else:
-					try:
-						bot_sib = MenuTree.objects.get(id=submenu.bot_sib.id)
-					except exceptions.ObjectDoesNotExist:
-						run_loop = False
-						bot_sib = None				
-
-					if bot_sib != None:						
-						if bot_sib.is_category:
-							if bot_sib.category:
-								if bot_sib.category.active:
-									add_li(resp,'--'*local_level+str(bot_sib.id)+' '
-										   +str(bot_sib.category.name)+' '+str(bot_sib.child_qty)
-										   +' <a href="/del/{}">del</a>'.format(bot_sib.id))
-									resp.append(bot_sib.get_tree_ul(local_level))
-						else:
-							if bot_sib.product:
-								if bot_sib.product.active:
-									add_li(resp,'--'*local_level+str(bot_sib.id)+' '
-										   +str(bot_sib.product.name)+' '+str(bot_sib.product.price)
-										   +' <a href="/del/{}">del</a>'.format(bot_sib.id))
-						submenu = MenuTree.objects.get(id=bot_sib.id)	
-
-		return ''.join(resp)
-
-	def get_tree(self):		
+	def get_tree(self):	
+		'''
+		Retruns tree objects list
+		'''
 		tree = []
-		root = self.get_root() #always category
+		root = self.get_root()
 		obj_w_level_to_list(tree, root, 0)
 		tree += root.get_category_branch()
-		return tree
+		return tree		
 
 	def get_category_branch(self, level=0, *args, **kwargs):
 		'''
@@ -320,20 +250,10 @@ class MenuTree(models.Model):
 		'''			
 		local_level = level + 1
 		branch = []
-		# try:
-		# 	if self.first_child:			
-		# 		child = MenuTree.objects.get(id=self.first_child.id)
-		# 	else:
-		# 		child = None
-		# except exceptions.ObjectDoesNotExist:	
-		# 	child = None	
-		# if child:
 		if self.first_child:
 			run_loop = True
 			while run_loop:
 				if self.first_child.is_category:
-					#if child.category:
-					#	if child.category.active:
 					obj_w_level_to_list(branch,self.first_child,local_level)
 					branch += self.first_child.get_category_branch(local_level)
 				else:
@@ -341,22 +261,34 @@ class MenuTree(models.Model):
 				if not self.first_child.bot_sib:  #last child element
 					run_loop = False
 				else:
-					#if self.first_child.bot_sib:
 					self.first_child = self.first_child.bot_sib
-					# try:
-					# 	child = MenuTree.objects.get(id=child.bot_sib.id)
-					# except exceptions.ObjectDoesNotExist:
-					# 	run_loop = False
+		return branch
+
+	def get_single_branch(self):
+		'''
+		Returns single level child elements
+		'''
+		branch = []
+		if self.first_child:
+			run_loop = True
+			while run_loop:
+				obj_w_level_to_list(branch,self.first_child,self.get_level()+1)
+				if not self.first_child.bot_sib:  #last child element
+					run_loop = False
+				else:
+					self.first_child = self.first_child.bot_sib
 		return branch
 
 	def generate_random_tree(self):
+		'''
+		Generates total_elements random tree 
+		'''
 		total_cats = 300
 		total_prods = 10000
 		total_elements = 500
-		#choices = [0,1,2,3]
 
-		#cat = Category.objects.all()
-		logme('generate_random_tree process started') #dev
+		start = datetime.datetime.now()
+		logme('generate_random_tree process started {}'.format(start))
 		existing_cats = Category.objects.count()
 		if existing_cats < total_cats:
 			for i in range(total_cats - existing_cats):
@@ -374,60 +306,49 @@ class MenuTree(models.Model):
 				new_prod.price = random.randrange(1000) + random.randrange(100)/100
 				new_prod.save()
 
-		# cats = Category.objects.all()
-		# prods = Product.objects.all()
 		root = self.get_root()
-		#child = self.insert_child(True,random.choice(cats).id)
-		#child = self.insert_child(False,random.choice(prods).id)
-		debug_int = 0 #dev
 		elements_left = total_elements
 		for i in range(total_elements):
-			elements_left -= root.create_random_child(elements_left)
+			elements_left -= root.create_random_child(elements_left,1)
 			if elements_left < 1:
 				break
+		end = datetime.datetime.now()
+		logme('generate_random_tree process finished, duration {}, elements created {}'.format(end - start,total_elements))
 			
-	def create_random_child(self, elements_left):
-		stop_prob = 0.3
-		prod_prob = 0.7 #else category
+	def create_random_child(self, elements_left, level):
+		'''
+		Creates random child, if child is category makes recursion call 
+		to generate its childs until elements_left == created_childs
+		'''
+		stop_prob = 0.2
+		prod_prob = 0.8 #else category
+		prod_in_first_level_prob = 0.1		
 		cats = Category.objects.all()
 		prods = Product.objects.all()
-		#go_deeper_prob = 0.5
-		#active_prob = 0.9 #else not active
 		created_childs = 0
 		for i in range(elements_left):
 			if (random.random() <= stop_prob) or (created_childs > elements_left):
 				break
-			elif random.random() <= prod_prob:
+			elif level == 1:
+				insert_prod = random.random() <= prod_in_first_level_prob
+			else:
+				insert_prod = random.random() <= prod_prob
+			if insert_prod:
 				child = self.insert_child(False,random.choice(prods).id)
 				created_childs += 1
 			else: #category
 				cat = self.insert_child(True,random.choice(cats).id)
 				created_childs += 1
-				created_childs += cat.create_random_child(elements_left - created_childs)
+				created_childs += cat.create_random_child(elements_left - created_childs, level + 1)
 		return created_childs
 
-
-
-class Menu(models.Model):
-	category = models.ForeignKey(Category, related_name='menu_to_category')
-
-class MenuItem(models.Model):
-	'''
-	Menu Items model	
-	'''
-	menu = models.ForeignKey(Menu, related_name='menu_item_to_menu')
-	is_category = models.BooleanField()
-	category = models.ForeignKey(Category, related_name='menu_item_to_category', blank=True, null=True)
-	product = models.ForeignKey(Product, related_name='menu_item_product', blank=True, null=True)
-
-	def save(self, *args, **kwargs):
-		#logme(self.is_category)
-		#logme(self.category)
-		#logme(self.product)
-		# if self.is_category:
-		# 	if self.category == None:
-		# 		raise exceptions.FieldError('Category must be set')
-		# else:	
-		# 	if self.product == None:
-		# 		raise exceptions.FieldError('Product must be set')
-		super(MenuItem, self).save(*args, **kwargs)
+	def get_level(self):
+		'''
+		Returns level of self element
+		'''
+		level = 0
+		parent = self.parent
+		while parent:
+			level += 1
+			parent = parent.parent
+		return level
